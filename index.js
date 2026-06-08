@@ -1,4 +1,3 @@
-// index.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -7,16 +6,13 @@ const bcrypt = require('bcrypt');
 
 const app = express();
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Conectar ao MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB conectado com sucesso!'))
   .catch(err => console.error('Erro ao conectar ao MongoDB:', err));
 
-// --- Modelos do Banco de Dados (Schemas) ---
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -36,49 +32,39 @@ const EventSchema = new mongoose.Schema({
 });
 const Event = mongoose.model('Event', EventSchema);
 
+app.get('/', (req, res) => {
+  res.status(200).json({ message: 'O servidor do Agenda App está vivo e a responder!' });
+});
 
-// --- ROTA DE TESTE ---
 app.get('/api/test', (req, res) => {
   console.log('!!!!!!!!!! O TESTE /api/test FOI EXECUTADO !!!!!!!!!!');
   res.status(200).json({ message: 'O servidor está vivo e a responder!' });
 });
-// ---------------------
 
-
-// --- ROTAS DE UTILIZADOR ---
 app.post('/api/users/register', async (req, res) => {
   try {
     const { name, email, password, birthDate } = req.body;
     let dateObject;
 
-    // --- INÍCIO DA CORREÇÃO FINAL DA DATA ---
     if (!birthDate || typeof birthDate !== 'string') {
         console.error('Erro em /api/users/register: birthDate não foi fornecida.');
         return res.status(400).json({ message: 'Data de nascimento é obrigatória.' });
     }
 
     if (birthDate.includes('-')) {
-        // Formato ISO (AAAA-MM-DD...) - O new Date() entende isto diretamente!
-        console.log('A processar data em formato ISO (com -)');
         dateObject = new Date(birthDate);
     } else if (birthDate.includes('/')) {
-        // Formato DD/MM/AAAA
-        console.log('A processar data em formato DD/MM/AAAA (com /)');
         const parts = birthDate.split('/');
         if (parts.length === 3) {
-            // new Date(ano, mês-1, dia)
             dateObject = new Date(parts[2], parts[1] - 1, parts[0]);
         } else {
             console.error(`Erro em /api/users/register: Formato de data (com /) inválido. Recebido: ${birthDate}`);
             return res.status(400).json({ message: 'Formato de data inválido. Use DD/MM/AAAA.' });
         }
     } else {
-        // Formato desconhecido
         console.error(`Erro em /api/users/register: Formato de data totalmente desconhecido. Recebido: ${birthDate}`);
         return res.status(400).json({ message: 'Formato de data desconhecido.' });
     }
-    // --- FIM DA CORREÇÃO FINAL DA DATA ---
-
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -118,39 +104,29 @@ app.post('/api/users/login', async (req, res) => {
     }
 });
 
-// Rota para verificar identidade (email + data de nascimento)
 app.post('/api/users/verify-identity', async (req, res) => {
     try {
         const { email, birthDate } = req.body;
         let dateObject;
 
-        // --- INÍCIO DA CORREÇÃO FINAL DA DATA ---
         if (!birthDate || typeof birthDate !== 'string') {
             console.error('Erro em /api/users/verify-identity: birthDate não foi fornecida.');
             return res.status(400).json({ message: 'Data de nascimento é obrigatória.' });
         }
 
         if (birthDate.includes('-')) {
-            // Formato ISO (AAAA-MM-DD...)
-            console.log('A processar data em formato ISO (com -)');
             dateObject = new Date(birthDate);
         } else if (birthDate.includes('/')) {
-            // Formato DD/MM/AAAA
-            console.log('A processar data em formato DD/MM/AAAA (com /)');
             const parts = birthDate.split('/');
             if (parts.length === 3) {
-                // new Date(ano, mês-1, dia)
                 dateObject = new Date(parts[2], parts[1] - 1, parts[0]);
             } else {
                 console.error(`Erro em /api/users/verify-identity: Formato de data (com /) inválido. Recebido: ${birthDate}`);
                 return res.status(400).json({ message: 'Formato de data inválido. Use DD/MM/AAAA.' });
             }
         } else {
-            // Formato desconhecido
-            console.error(`Erro em /api/users/verify-identity: Formato de data totalmente desconhecido. Recebido: ${birthDate}`);
             return res.status(400).json({ message: 'Formato de data desconhecido.' });
         }
-        // --- FIM DA CORREÇÃO FINAL DA DATA ---
 
         const user = await User.findOne({ email, birthDate: dateObject });
         if (!user) {
@@ -163,7 +139,6 @@ app.post('/api/users/verify-identity', async (req, res) => {
     }
 });
 
-// Rota para redefinir a senha
 app.post('/api/users/reset-password', async (req, res) => {
     try {
         const { userId, newPassword } = req.body;
@@ -180,7 +155,6 @@ app.post('/api/users/reset-password', async (req, res) => {
     }
 });
 
-// Rota para um utilizador apagar a sua própria conta
 app.delete('/api/users/me/:id', async (req, res) => {
     try {
         const { password } = req.body;
@@ -202,12 +176,9 @@ app.delete('/api/users/me/:id', async (req, res) => {
     }
 });
 
-
-// --- ROTAS DE EVENTOS ---
 app.post('/api/events', async (req, res) => {
     try {
         const { userId, eventName, venue, dateTime, value, status, description } = req.body;
-        // ATENÇÃO: Se 'dateTime' também vier como string, precisará da mesma lógica de data acima
         const newEvent = new Event({ userId, eventName, venue, dateTime, value, status, description });
         await newEvent.save();
         res.status(201).json(newEvent);
@@ -256,7 +227,6 @@ app.delete('/api/events/:id', async (req, res) => {
         res.status(500).json({ message: 'Erro ao apagar evento', error: error.message });
     }
 });
-
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
